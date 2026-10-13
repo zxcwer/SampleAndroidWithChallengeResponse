@@ -18,6 +18,8 @@ services:
       SPRING_CONFIG_IMPORT: optional:configtree:/run/secrets/
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?.env に ADMIN_API_TOKEN を設定してください}
       AUTH_MIN_APP_VERSION: ${AUTH_MIN_APP_VERSION:-0}
+      # 同期から何日でアプリをロックするか(動作確認では 0 にすると同期直後にロックされる)
+      SYNC_MAX_OFFLINE_DAYS: ${SYNC_MAX_OFFLINE_DAYS:-7}
     volumes:
       - ./certs/server.p12:/certs/server.p12:ro
       - sync-data:/app/data

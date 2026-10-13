@@ -161,6 +161,32 @@ docker compose up -d --build
 > (`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`) を指定。android/ では起動時にチェックして案内を出します。
 > `-PsyncServerUrl` は `https://<IP>:8443` の形式 (`192.168.11.5` のようにスキームやポートを省略した場合は `https://` と `:8443` を補います)。
 
+### エミュレータで試す
+
+エミュレータからホスト PC には **`10.0.2.2`** で届きます。`10.0.2.2` を証明書の SAN と接続先 URL に使います。
+
+```bash
+# 1. AVD を用意 (Android Studio の Device Manager でも可)。API 28 以上、Google APIs イメージ
+#    Apple Silicon は arm64-v8a、Intel Mac / Windows / Linux は x86_64
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "system-images;android-34;google_apis;arm64-v8a"
+$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n sync-test -k "system-images;android-34;google_apis;arm64-v8a"
+$ANDROID_HOME/emulator/emulator -avd sync-test &
+
+# 2. 証明書作成 → サーバー起動 → APK ビルド → エミュレータへインストール (JDK は 17〜21)
+export ANDROID_HOME=/path/to/android-sdk
+scripts/dev-up.sh 10.0.2.2
+
+# 3. 登録コードを発行し、アプリに入力して「登録する」
+scripts/new-registration-code.sh
+```
+
+- 手動でやる場合: `scripts/gen-private-ca.sh 10.0.2.2` → `docker compose up -d --build` → `cd android && ./gradlew :app:installDebug -PsyncServerUrl=https://10.0.2.2:8443`
+- エミュレータに StrongBox は無いため、鍵は自動で通常の Keystore にフォールバックします
+- 動作確認の例: `scripts/set-device-status.sh list` で端末を確認 → `lost` に変更 → アプリで「今すぐ同期」→ ロック表示。
+  オフラインロックは `.env` に `SYNC_MAX_OFFLINE_DAYS=0` を入れて `docker compose up -d` し直し、同期後に画面を開き直すとロックされる
+- ログ: `adb logcat | grep -i com.example.sync`、サーバー: `docker compose logs -f sync-server`
+- 登録済みの状態をやり直すには、エミュレータで「設定 > アプリ > 端末認証サンプル > ストレージ > データを消去」(Keystore の鍵も消えます)
+
 ### 実機 (本物の Android 端末) で試す
 
 実機は hosts を編集できないため、**サーバーの LAN IP を証明書の SAN に入れ、`https://<IP>:8443` で接続**します。
