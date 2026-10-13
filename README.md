@@ -166,7 +166,10 @@ docker compose up -d --build
 エミュレータからホスト PC には **`10.0.2.2`** で届きます。`10.0.2.2` を証明書の SAN と接続先 URL に使います。
 
 ```bash
-# 1. AVD を用意 (Android Studio の Device Manager でも可)。API 28 以上、Google APIs イメージ
+# 1. AVD を用意。API 28 以上、Google APIs イメージ。
+#    ※ sdkmanager が無い場合 (Android Studio 既定では未インストール) は下の「Device Manager で作る」を使うか、
+#      Android Studio > Settings > Languages & Frameworks > Android SDK > SDK Tools で
+#      「Android SDK Command-line Tools (latest)」にチェックして Apply
 #    Apple Silicon は arm64-v8a、Intel Mac / Windows / Linux は x86_64
 $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "system-images;android-34;google_apis;arm64-v8a"
 $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n sync-test -k "system-images;android-34;google_apis;arm64-v8a"
@@ -180,6 +183,7 @@ scripts/dev-up.sh 10.0.2.2
 scripts/new-registration-code.sh
 ```
 
+- **Device Manager で作る場合 (コマンド不要)**: Android Studio > Tools > Device Manager > Create Device > Pixel 系 > システムイメージ API 34 (Google APIs) をダウンロード > Finish > ▶ で起動。起動後に `scripts/dev-up.sh 10.0.2.2` を実行
 - 手動でやる場合: `scripts/gen-private-ca.sh 10.0.2.2` → `docker compose up -d --build` → `cd android && ./gradlew :app:installDebug -PsyncServerUrl=https://10.0.2.2:8443`
 - エミュレータに StrongBox は無いため、鍵は自動で通常の Keystore にフォールバックします
 - 動作確認の例: `scripts/set-device-status.sh list` で端末を確認 → `lost` に変更 → アプリで「今すぐ同期」→ ロック表示。
