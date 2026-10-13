@@ -3,6 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// "192.168.1.5" や "192.168.1.5:9443" のように書かれても https://host:port に補正する (平文 http は不可)
+fun normalizeServerUrl(raw: String): String {
+    val v = raw.trim().trimEnd('/')
+    require(!v.startsWith("http://")) { "syncServerUrl must be https:// (cleartext is disabled in the app): $raw" }
+    val withScheme = if (v.startsWith("https://")) v else "https://$v"
+    val authority = withScheme.removePrefix("https://")
+    val hasPort = Regex(".*:[0-9]+$").matches(authority) && !authority.endsWith("]")
+    return if (hasPort) withScheme else "$withScheme:8443"
+}
+
 android {
     namespace = "com.example.sync.app"
     compileSdk = 35
@@ -17,7 +27,7 @@ android {
         versionName = "1.0"
 
         // ./gradlew assembleDebug -PsyncServerUrl=https://sync-server.local:8443
-        val serverUrl = (project.findProperty("syncServerUrl") as String?) ?: "https://sync-server.local:8443"
+        val serverUrl = normalizeServerUrl((project.findProperty("syncServerUrl") as String?) ?: "https://sync-server.local:8443")
         buildConfigField("String", "SERVER_BASE_URL", "\"$serverUrl\"")
         // 失効(device_revoked)を受け取ったときにローカルデータを消去するか。運用ルールに合わせて決める。
         val wipe = (project.findProperty("wipeOnRevoked") as String?) ?: "false"

@@ -156,6 +156,11 @@ docker compose up -d --build
 - Docker Hub の取得制限 (429) が出る環境では `.env` に `BASE_REGISTRY=mirror.gcr.io/library/` を追加
 - 管理操作: `scripts/new-registration-code.sh`(登録コード発行)、`scripts/set-device-status.sh <deviceId> lost`(紛失扱い)、`scripts/set-device-status.sh list`(端末一覧)
 
+> **JDK は 17〜21 を使ってください。** Gradle 8.14 / Kotlin 2.1 は JDK 22 以降(例: 25)では動かず、`What went wrong: 25` のようなエラーで落ちます。
+> macOS: `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew ...`、または Android Studio 同梱の JDK
+> (`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`) を指定。android/ では起動時にチェックして案内を出します。
+> `-PsyncServerUrl` は `https://<IP>:8443` の形式 (`192.168.11.5` のようにスキームやポートを省略した場合は `https://` と `:8443` を補います)。
+
 ### 実機 (本物の Android 端末) で試す
 
 実機は hosts を編集できないため、**サーバーの LAN IP を証明書の SAN に入れ、`https://<IP>:8443` で接続**します。
