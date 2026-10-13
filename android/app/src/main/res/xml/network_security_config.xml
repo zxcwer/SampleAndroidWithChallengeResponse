@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  閉じたネットワーク内でも HTTPS を使う。公開 CA ではなく社内(プライベート)CA のみを信頼する。
+  CA 証明書は res/raw/private_ca.pem (scripts/gen-private-ca.sh で作成) を同梱する。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="@raw/private_ca" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

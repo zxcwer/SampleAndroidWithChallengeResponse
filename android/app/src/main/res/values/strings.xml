@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">端末認証サンプル</string>
+
+    <string name="register_title">端末登録</string>
+    <string name="register_hint">登録コード (管理画面で発行・30分有効)</string>
+    <string name="register_button">登録する</string>
+    <string name="sync_button">今すぐ同期</string>
+    <string name="data_title">業務データ(サンプル)</string>
+    <string name="data_body">ここに業務データを表示します。</string>
+
+    <string name="status_registered">端末登録済み (ID: %1$s)</string>
+    <string name="status_not_registered">この端末はまだ登録されていません。</string>
+    <string name="status_key_lost">端末IDは残っていますが、端末の鍵が失われています。再登録してください。</string>
+    <string name="status_last_sync">最終同期(サーバー時刻): %1$s</string>
+    <string name="status_never_synced">まだ同期していません。</string>
+    <string name="status_remaining">ロックまで: 約 %1$d 時間</string>
+
+    <string name="locked_never_synced">ロック中: クレードルに接続して初回同期を完了してください。</string>
+    <string name="locked_offline">ロック中: 長期間同期されていません。クレードルに接続して同期してください。</string>
+    <string name="locked_revoked">この端末は停止または紛失扱いです。管理者に連絡してください。</string>
+
+    <string name="msg_registered">登録しました。続けて同期します。</string>
+    <string name="msg_syncing">同期中…</string>
+    <string name="msg_sync_ok">同期しました。</string>
+    <string name="msg_enter_code">登録コードを入力してください。</string>
+
+    <string name="err_network">サーバーに接続できません。クレードルの接続を確認してください。</string>
+    <string name="err_device_revoked">この端末は停止または紛失扱いになっています。管理者に連絡してください。</string>
+    <string name="err_device_not_registered">この端末はサーバーに登録されていません。登録コードで再登録してください。</string>
+    <string name="err_app_version_unsupported">アプリの更新が必要です。</string>
+    <string name="err_invalid_registration_code">登録コードが正しくないか、期限切れです。</string>
+    <string name="err_rate_limited">リクエストが多すぎます。しばらくしてからやり直してください。</string>
+    <string name="err_generic">認証に失敗しました (%1$s)。</string>
+</resources>

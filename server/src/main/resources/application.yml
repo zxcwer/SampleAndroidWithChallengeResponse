@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/sync;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8443
+  # HTTPS を有効にする場合は scripts/gen-private-ca.sh で作った keystore を指定する。
+  #   SERVER_SSL_ENABLED=true SERVER_SSL_KEY_STORE=file:certs/server.p12 SERVER_SSL_KEY_STORE_PASSWORD=...
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:false}
+
+auth:
+  issuer: https://sync-server.local/auth
+  audience: sync-api
+  access-token-ttl: 30m
+  challenge-ttl: 60s
+  registration-code-ttl: 30m
+  # 0 の場合は端末アプリのバージョン確認をしない。
+  min-app-version: ${AUTH_MIN_APP_VERSION:0}
+  signing:
+    key-dir: ${AUTH_SIGNING_KEY_DIR:./signing-keys}
+    # 空なら key-dir 内で kid が辞書順で最大のものを署名に使う。
+    active-kid: ${AUTH_ACTIVE_KID:}
+  rate-limit:
+    challenge-per-device-per-minute: 10
+    token-per-device-per-minute: 10
+    per-ip-per-minute: 60
+    register-per-ip-per-minute: 10
+
+admin:
+  # 管理画面(バックエンド)が使うトークン。未設定なら /admin/** は無効。
+  api-token: ${ADMIN_API_TOKEN:}
+
+sync:
+  # この日数を超えて同期していない端末はアプリ側でロックする。同期時に端末へ配信される。
+  max-offline-days: 7
