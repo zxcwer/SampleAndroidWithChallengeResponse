@@ -3,6 +3,8 @@
 #
 #   scripts/gen-private-ca.sh [サーバーのホスト名 (既定: sync-server.local)] [追加SAN ...]
 #   例) scripts/gen-private-ca.sh sync-server.local localhost 10.0.2.2 192.168.10.5
+#   実機は hosts を編集できないので、サーバーの LAN IP を SAN に入れて https://<IP>:8443 で接続する。
+#   例) scripts/gen-private-ca.sh 192.168.10.5
 #
 # 出力 (certs/ は .gitignore 済み。CA 秘密鍵は必ず安全な場所に保管すること):
 #   certs/ca.key, certs/ca.pem        ... CA (秘密鍵は外に出さない)
@@ -17,10 +19,11 @@ OUT="$ROOT/certs"
 mkdir -p "$OUT"
 umask 077
 
-# SAN の組み立て (IP アドレスは IP:、それ以外は DNS:)
-SAN="DNS:$HOST"
-for h in "$@"; do
-  if [[ "$h" =~ ^[0-9.]+$ || "$h" == *:* ]]; then SAN="$SAN,IP:$h"; else SAN="$SAN,DNS:$h"; fi
+# SAN の組み立て (IP アドレスは IP:、それ以外は DNS:)。最初のホストも同様に判定する
+SAN=""
+for h in "$HOST" "$@"; do
+  if [[ "$h" =~ ^[0-9.]+$ || "$h" == *:* ]]; then entry="IP:$h"; else entry="DNS:$h"; fi
+  SAN="${SAN:+$SAN,}$entry"
 done
 
 openssl ecparam -name prime256v1 -genkey -noout -out "$OUT/ca.key"
@@ -40,11 +43,13 @@ PASS="$(openssl rand -hex 16)"
 echo -n "$PASS" > "$OUT/server.p12.password"
 openssl pkcs12 -export -inkey "$OUT/server.key" -in "$OUT/server.pem" -certfile "$OUT/ca.pem" \
   -name server -passout "pass:$PASS" -out "$OUT/server.p12"
+# docker compose のコンテナ(非 root)から読めるようにする。CA 秘密鍵(ca.key)は 600 のまま。
+chmod 644 "$OUT/server.p12" "$OUT/server.p12.password"
 rm -f "$OUT/server.csr" "$OUT/server.ext" "$OUT/ca.srl"
 
 mkdir -p "$ROOT/android/app/src/main/res/raw"
 cp "$OUT/ca.pem" "$ROOT/android/app/src/main/res/raw/private_ca.pem"
 
 echo "Created CA and server certificate for: $SAN"
-echo "Server: SERVER_SSL_ENABLED=true SERVER_SSL_KEY_STORE=file:certs/server.p12 SERVER_SSL_KEY_STORE_PASSWORD=\$(cat certs/server.p12.password)"
+echo "Server: docker compose up -d --build   (または README の bootRun 手順)"
 echo "App   : rebuild the Android app so that res/raw/private_ca.pem is bundled."

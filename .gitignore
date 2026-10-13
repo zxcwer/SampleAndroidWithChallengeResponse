@@ -1,2 +1,3 @@
 # 秘密鍵・keystore を含む。リポジトリに入れないこと
 certs/
+.env

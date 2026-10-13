@@ -1,0 +1,43 @@
+# 同期サーバーを HTTPS で起動する。
+#   1. scripts/gen-private-ca.sh <サーバーのIP/ホスト名> ...   (certs/ を作成)
+#   2. cp .env.example .env  して ADMIN_API_TOKEN を設定
+#   3. docker compose up -d --build
+services:
+  sync-server:
+    build:
+      context: ./server
+      args:
+        BASE_REGISTRY: ${BASE_REGISTRY:-}
+    ports:
+      - "${SYNC_PORT:-8443}:8443"
+    environment:
+      SERVER_SSL_ENABLED: "true"
+      SERVER_SSL_KEY_STORE: file:/certs/server.p12
+      SERVER_SSL_KEY_STORE_TYPE: PKCS12
+      # keystore のパスワードは secret(ファイル)から読み込む (Spring の configtree)
+      SPRING_CONFIG_IMPORT: optional:configtree:/run/secrets/
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?.env に ADMIN_API_TOKEN を設定してください}
+      AUTH_MIN_APP_VERSION: ${AUTH_MIN_APP_VERSION:-0}
+    volumes:
+      - ./certs/server.p12:/certs/server.p12:ro
+      - sync-data:/app/data
+      - sync-signing-keys:/app/signing-keys
+    secrets:
+      - source: ssl_key_store_password
+        target: server.ssl.key-store-password
+    healthcheck:
+      # 認証なしでは 401 が返る。TLS で応答できていれば(000 でなければ)起動済みとみなす
+      test: ["CMD-SHELL", "[ \"$$(curl -ks -o /dev/null -w '%{http_code}' https://localhost:8443/sync/v1/policy)\" != 000 ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+secrets:
+  ssl_key_store_password:
+    file: ./certs/server.p12.password
+
+volumes:
+  sync-data:
+  sync-signing-keys:

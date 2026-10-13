@@ -142,6 +142,39 @@ curl --cacert certs/ca.pem -X PUT -H "Authorization: Bearer change-me" -H 'Conte
   -d '{"status":"lost"}' https://sync-server.local:8443/admin/v1/devices/<deviceId>/status
 ```
 
+### 2'. サーバーを docker compose で起動する (推奨)
+
+```bash
+scripts/gen-private-ca.sh 192.168.10.5          # サーバーの LAN IP (または名前) を SAN に入れて CA・サーバー証明書を作成
+cp .env.example .env                              # ADMIN_API_TOKEN を変更
+docker compose up -d --build
+```
+
+- `certs/server.p12` は読み取り専用で mount、keystore のパスワードは Docker secret (Spring の `configtree`) で渡します
+- DB (`/app/data`) と JWT 署名鍵 (`/app/signing-keys`) は named volume。コンテナを作り直しても残ります
+- コンテナは非 root (uid 10001)。healthcheck は TLS で応答できるかを確認します
+- Docker Hub の取得制限 (429) が出る環境では `.env` に `BASE_REGISTRY=mirror.gcr.io/library/` を追加
+- 管理操作: `scripts/new-registration-code.sh`(登録コード発行)、`scripts/set-device-status.sh <deviceId> lost`(紛失扱い)、`scripts/set-device-status.sh list`(端末一覧)
+
+### 実機 (本物の Android 端末) で試す
+
+実機は hosts を編集できないため、**サーバーの LAN IP を証明書の SAN に入れ、`https://<IP>:8443` で接続**します。
+上の手順をまとめたスクリプトがあります。
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk         # APK をビルドするホストで
+scripts/dev-up.sh 192.168.10.5                    # 証明書作成 → docker compose 起動 → APK ビルド → adb install
+scripts/new-registration-code.sh                  # 登録コードを発行
+```
+
+1. 端末を USB デバッグで接続しておくと `adb install` まで行います(未接続なら `android/app/build/outputs/apk/debug/app-debug.apk` を端末へコピーしてインストール)
+2. 端末はサーバーと同じネットワークに接続し、ホストのファイアウォールでポート 8443 を許可
+3. アプリを開き、発行した登録コードを入力して「登録する」→ 続けて初回同期が走ります
+4. 動作確認: `scripts/set-device-status.sh list` で端末が見える → `scripts/set-device-status.sh <deviceId> lost` の後に「今すぐ同期」で `device_revoked` が表示されロックされる → `active` に戻して再登録なしで復帰(ただし revoked フラグが立った端末は再登録が必要)
+5. 機内モード等でサーバーに届かない状態のまま、サーバーが配信した日数(既定 7 日)を超えるとロックされます(`sync.max-offline-days` を 0 や 1 にして確認可能)
+
+証明書を作り直したら **APK も必ず再ビルド**してください(アプリは同梱した CA だけを信頼します)。
+
 ### 3. Android アプリ
 
 ```bash
