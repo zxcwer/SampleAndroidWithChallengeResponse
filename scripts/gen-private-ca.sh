@@ -28,29 +28,33 @@ for h in "$HOST" "$@"; do
   SAN="${SAN:+$SAN,}$entry"
 done
 
-openssl ecparam -name prime256v1 -genkey -noout -out "$OUT/ca.key"
-openssl req -x509 -new -key "$OUT/ca.key" -sha256 -days 3650 \
+# openssl には絶対パスを渡さず、certs/ に移動して相対パスだけを使う。
+# (Git Bash では /c/Users/... を Windows ネイティブの openssl が解釈できず "No such file" になるため)
+cd "$OUT"
+
+openssl ecparam -name prime256v1 -genkey -noout -out ca.key
+openssl req -x509 -new -key ca.key -sha256 -days 3650 \
   -subj "/CN=Sync Private CA" \
   -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
   -addext "keyUsage=critical,keyCertSign,cRLSign" \
-  -out "$OUT/ca.pem"
+  -out ca.pem
 
-openssl ecparam -name prime256v1 -genkey -noout -out "$OUT/server.key"
-openssl req -new -key "$OUT/server.key" -subj "/CN=$HOST" -out "$OUT/server.csr"
-printf "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=%s\n" "$SAN" > "$OUT/server.ext"
-openssl x509 -req -in "$OUT/server.csr" -CA "$OUT/ca.pem" -CAkey "$OUT/ca.key" -CAcreateserial \
-  -sha256 -days 825 -extfile "$OUT/server.ext" -out "$OUT/server.pem"
+openssl ecparam -name prime256v1 -genkey -noout -out server.key
+openssl req -new -key server.key -subj "/CN=$HOST" -out server.csr
+printf "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=%s\n" "$SAN" > server.ext
+openssl x509 -req -in server.csr -CA ca.pem -CAkey ca.key -CAcreateserial \
+  -sha256 -days 825 -extfile server.ext -out server.pem
 
 PASS="$(openssl rand -hex 16)"
-echo -n "$PASS" > "$OUT/server.p12.password"
-openssl pkcs12 -export -inkey "$OUT/server.key" -in "$OUT/server.pem" -certfile "$OUT/ca.pem" \
-  -name server -passout "pass:$PASS" -out "$OUT/server.p12"
+printf '%s' "$PASS" > server.p12.password
+openssl pkcs12 -export -inkey server.key -in server.pem -certfile ca.pem \
+  -name server -passout "pass:$PASS" -out server.p12
 # docker compose のコンテナ(非 root)から読めるようにする。CA 秘密鍵(ca.key)は 600 のまま。
-chmod 644 "$OUT/server.p12" "$OUT/server.p12.password"
-rm -f "$OUT/server.csr" "$OUT/server.ext" "$OUT/ca.srl"
+chmod 644 server.p12 server.p12.password
+rm -f server.csr server.ext ca.srl
 
 mkdir -p "$ROOT/android/app/src/main/res/raw"
-cp "$OUT/ca.pem" "$ROOT/android/app/src/main/res/raw/private_ca.pem"
+cp ca.pem "$ROOT/android/app/src/main/res/raw/private_ca.pem"
 
 echo "Created CA and server certificate for: $SAN"
 echo "Server: docker compose up -d --build   (または README の bootRun 手順)"
