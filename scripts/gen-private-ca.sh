@@ -11,6 +11,8 @@
 #   certs/server.p12                  ... サーバー用 keystore (パスワードは certs/server.p12.password)
 #   android/app/src/main/res/raw/private_ca.pem ... アプリに同梱する CA 証明書 (公開情報)
 set -euo pipefail
+# Git Bash (Windows) が "/CN=..." のような引数をパスとして変換しないようにする
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 
 HOST="${1:-sync-server.local}"
 shift || true

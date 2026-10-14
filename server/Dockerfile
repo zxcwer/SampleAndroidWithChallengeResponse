@@ -6,6 +6,7 @@ WORKDIR /src
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
 COPY src src
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN --mount=type=cache,target=/root/.gradle ./gradlew bootJar -x test --no-daemon --console=plain \
     && cp build/libs/sync-server-*.jar /app.jar
 

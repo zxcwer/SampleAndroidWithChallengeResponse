@@ -161,6 +161,31 @@ docker compose up -d --build
 > (`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`) を指定。android/ では起動時にチェックして案内を出します。
 > `-PsyncServerUrl` は `https://<IP>:8443` の形式 (`192.168.11.5` のようにスキームやポートを省略した場合は `https://` と `:8443` を補います)。
 
+### Windows で動かす
+
+Windows 10/11 でも動きます。`scripts/*.sh` は bash 用なので **Git Bash** (Git for Windows に同梱。`openssl` / `curl` も入っています) で実行します。
+
+必要なもの: Git for Windows、Docker Desktop (WSL2 バックエンド推奨)、JDK 17〜21 (Android Studio 同梱の JBR で可)、Android Studio (SDK + エミュレータ)。
+
+```bash
+# Git Bash で (パスは環境に合わせて)
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+export ANDROID_HOME="$LOCALAPPDATA/Android/Sdk"
+export PATH="$PATH:$ANDROID_HOME/platform-tools"
+
+scripts/dev-up.sh 10.0.2.2            # エミュレータの場合。実機なら PC の LAN IP
+scripts/new-registration-code.sh
+```
+
+- `git clone` 時に改行が CRLF に変換されるとスクリプトや `gradlew` が壊れるため、リポジトリに `.gitattributes` を入れて `*.sh` / `gradlew` は LF 固定にしています。
+  すでに CRLF で clone してしまった場合は `git config core.autocrlf false && git rm --cached -r . -q && git reset --hard` で取り直してください
+- Gradle を PowerShell / cmd から直接使う場合: `cd android` → `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; $env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"; .\gradlew.bat :app:installDebug -PsyncServerUrl=https://10.0.2.2:8443`
+- 証明書作成とサーバー起動だけなら PowerShell でも可 (Git Bash の openssl を使う): Git Bash で `scripts/gen-private-ca.sh 10.0.2.2` → `docker compose up -d --build`
+- エミュレータは Windows Hypervisor Platform (または Hyper-V) が有効である必要があります。Android Studio の初回起動時の案内に従ってください
+- **実機**を使う場合は、Windows Defender ファイアウォールで TCP 8443 の受信を許可してください (エミュレータなら不要)。
+  `scripts/dev-up.sh <PCのLAN IP>` を実行し、PC と端末を同じネットワークに置きます
+- WSL2 (Ubuntu など) 内で動かす場合は Linux と同じ手順です。ただし adb は Windows 側のものを使うので、実機/エミュレータへのインストールは Windows 側の Git Bash で行うのが簡単です
+
 ### エミュレータで試す
 
 エミュレータからホスト PC には **`10.0.2.2`** で届きます。`10.0.2.2` を証明書の SAN と接続先 URL に使います。

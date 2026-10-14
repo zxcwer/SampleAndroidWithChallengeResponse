@@ -1,0 +1,8 @@
+# Windows の autocrlf で CRLF になると、シェルスクリプトや Linux コンテナ内の gradlew が壊れる
+* text=auto
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+Dockerfile text eol=lf
+*.jar binary
+*.p12 binary

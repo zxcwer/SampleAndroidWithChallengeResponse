@@ -3,6 +3,8 @@
 #   scripts/set-device-status.sh <deviceId> <active|suspended|lost> [https://host:8443]
 #   scripts/set-device-status.sh list [https://host:8443]      ... 端末一覧
 set -euo pipefail
+# Git Bash (Windows) が "/CN=..." のような引数をパスとして変換しないようにする
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 cd "$(dirname "$0")/.."
 TOKEN="$(grep '^ADMIN_API_TOKEN=' .env | cut -d= -f2-)"
 if [[ "${1:?}" == list ]]; then

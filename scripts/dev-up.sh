@@ -7,6 +7,8 @@
 # 前提: docker compose、(APK をビルドするなら) JDK 17+ と Android SDK (ANDROID_HOME)、(インストールするなら) adb。
 # 実機はこのホストと同じネットワークにいて、ポート 8443 に届くこと(ファイアウォール注意)。
 set -euo pipefail
+# Git Bash (Windows) が "/CN=..." のような引数をパスとして変換しないようにする
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 cd "$(dirname "$0")/.."
 
 HOST="${1:?usage: $0 <server LAN IP or hostname> [extra SAN ...]}"
@@ -40,10 +42,12 @@ if [[ -n "${ANDROID_HOME:-}${ANDROID_SDK_ROOT:-}" ]]; then
   (cd android && ./gradlew :app:assembleDebug -PsyncServerUrl="https://$HOST:$PORT")
   APK=android/app/build/outputs/apk/debug/app-debug.apk
   echo "APK: $APK"
-  if command -v adb >/dev/null && [[ -n "$(adb devices | sed 1d | grep -w device || true)" ]]; then
-    adb install -r "$APK"
+  ADB="$(command -v adb || true)"
+  [[ -z "$ADB" ]] && ADB="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/platform-tools/adb"
+  if "$ADB" devices 2>/dev/null | sed 1d | tr -d '\r' | grep -qw device; then
+    "$ADB" install -r "$APK"
   else
-    echo "No adb device connected - copy the APK to the phone, or connect it with USB debugging and run: adb install -r $APK"
+    echo "No adb device/emulator found - start the emulator or connect the phone (USB debugging), then run: adb install -r $APK"
   fi
 else
   echo "ANDROID_HOME is not set - skipped building the APK"
