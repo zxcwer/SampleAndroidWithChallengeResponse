@@ -16,6 +16,15 @@ export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 
 HOST="${1:-sync-server.local}"
 shift || true
+# 有効期間(日)。環境変数で変更できる。CA はアプリに同梱されるため交換が大変 → 長め、サーバー証明書は短めが基本。
+#   例) CA_DAYS=36500 SERVER_CERT_DAYS=36500 scripts/gen-private-ca.sh 192.168.10.5
+CA_DAYS="${CA_DAYS:-3650}"
+SERVER_CERT_DAYS="${SERVER_CERT_DAYS:-825}"
+if (( SERVER_CERT_DAYS > CA_DAYS )); then
+  echo "SERVER_CERT_DAYS ($SERVER_CERT_DAYS) must not exceed CA_DAYS ($CA_DAYS): the server cert would outlive its CA" >&2
+  exit 1
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/certs"
 mkdir -p "$OUT"
@@ -35,7 +44,7 @@ done
 cd "$OUT"
 
 openssl ecparam -name prime256v1 -genkey -noout -out ca.key
-openssl req -x509 -new -key ca.key -sha256 -days 3650 \
+openssl req -x509 -new -key ca.key -sha256 -days "$CA_DAYS" \
   -subj "/CN=Sync Private CA" \
   -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
   -addext "keyUsage=critical,keyCertSign,cRLSign" \
@@ -45,7 +54,7 @@ openssl ecparam -name prime256v1 -genkey -noout -out server.key
 openssl req -new -key server.key -subj "/CN=$HOST" -out server.csr
 printf "basicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=%s\n" "$SAN" > server.ext
 openssl x509 -req -in server.csr -CA ca.pem -CAkey ca.key -CAcreateserial \
-  -sha256 -days 825 -extfile server.ext -out server.pem
+  -sha256 -days "$SERVER_CERT_DAYS" -extfile server.ext -out server.pem
 
 PASS="$(openssl rand -hex 16)"
 printf '%s' "$PASS" > server.p12.password
@@ -58,6 +67,6 @@ rm -f server.csr server.ext ca.srl
 mkdir -p "$ROOT/android/app/src/main/res/raw"
 cp ca.pem "$ROOT/android/app/src/main/res/raw/private_ca.pem"
 
-echo "Created CA and server certificate for: $SAN"
+echo "Created CA (${CA_DAYS} days) and server certificate (${SERVER_CERT_DAYS} days) for: $SAN"
 echo "Server: docker compose up -d --build   (または README の bootRun 手順)"
 echo "App   : rebuild the Android app so that res/raw/private_ca.pem is bundled."

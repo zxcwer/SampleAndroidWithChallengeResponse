@@ -117,6 +117,12 @@ device-auth-v1
 scripts/gen-private-ca.sh sync-server.local localhost 10.0.2.2   # certs/ と android/.../res/raw/private_ca.pem を生成
 ```
 
+有効期間は環境変数で変えられます(既定: CA 3650 日 / サーバー証明書 825 日。サーバー証明書は CA より長くできません)。
+
+```bash
+CA_DAYS=7300 SERVER_CERT_DAYS=3650 scripts/gen-private-ca.sh 192.168.10.5     # CA 20 年 / サーバー 10 年
+```
+
 リポジトリ同梱の `private_ca.pem` は秘密鍵が破棄された**プレースホルダ**です。実運用では必ず上のスクリプトで自分の CA を作り直し、
 `certs/ca.key` を安全な場所に保管してください(アプリは再ビルドが必要)。
 
