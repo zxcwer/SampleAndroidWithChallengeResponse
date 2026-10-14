@@ -56,12 +56,15 @@ class DeviceAuthClient(
      */
     @Throws(IOException::class, DeviceAuthException::class)
     fun register(registrationCode: String, deviceInfo: DeviceInfo): String {
+        api.logger.i("register: generating device key pair")
         val publicKey = keyStore.generate()
         try {
             val res: RegisterResponse = api.postJson("/auth/v1/devices/register", RegisterRequest(registrationCode.trim(), publicKey, deviceInfo))
             deviceIds.set(res.deviceId)
+            api.logger.i("register: ok deviceId=${res.deviceId}")
             return res.deviceId
         } catch (e: Exception) {
+            api.logger.w("register: failed (${e.javaClass.simpleName}); discarding the generated key", e)
             keyStore.delete()
             throw e
         }
@@ -76,10 +79,17 @@ class DeviceAuthClient(
         var attempt = 0
         while (true) {
             attempt++
+            api.logger.i("authenticate: challenge-response attempt $attempt/$maxChallengeAttempts deviceId=$deviceId")
             try {
-                return authenticateOnce(deviceId)
+                return authenticateOnce(deviceId).also {
+                    api.logger.i("authenticate: ok (access token valid for ${it.expiresInSeconds}s, kept in memory only)")
+                }
             } catch (e: DeviceAuthException) {
-                if (e.code != ErrorCodes.CHALLENGE_EXPIRED || attempt >= maxChallengeAttempts) throw e
+                if (e.code != ErrorCodes.CHALLENGE_EXPIRED || attempt >= maxChallengeAttempts) {
+                    api.logger.w("authenticate: giving up code=${e.code} terminal=${e.isTerminal}")
+                    throw e
+                }
+                api.logger.w("authenticate: challenge expired, retrying with a new challenge")
             }
         }
     }

@@ -14,9 +14,13 @@ sealed interface SyncResult {
  * 最後まで成功したときだけ「最終同期」を記録するため、途中失敗でロックが延びることはない。
  */
 class SyncRunner(private val container: AppContainer) {
+    private val log = container.logger
+
     fun run(): SyncResult {
+        log.i("sync: start")
         // 失効済みの端末は自動で認証し直さない(再登録されるまで止める)
         if (container.revokedFlag.revoked) {
+            log.w("sync: skipped - device was revoked earlier; re-registration required")
             return SyncResult.AuthError(DeviceAuthException("device_revoked", 403, "Device was revoked"))
         }
         return try {
@@ -25,10 +29,13 @@ class SyncRunner(private val container: AppContainer) {
             api.pull()
             val policy = api.policy()
             container.offlineGuard.recordSync(policy.serverTime, policy.maxOfflineDays)
+            log.i("sync: success (maxOfflineDays=${policy.maxOfflineDays}, serverTime=${policy.serverTime})")
             SyncResult.Success
         } catch (e: IOException) {
+            log.w("sync: network error (${e.javaClass.simpleName})")
             SyncResult.NetworkError
         } catch (e: DeviceAuthException) {
+            log.w("sync: auth error code=${e.code}")
             SyncResult.AuthError(e)
         }
     }

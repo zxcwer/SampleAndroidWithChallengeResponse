@@ -60,6 +60,7 @@ class ApiHttp(
     val transport: HttpTransport,
     /** サーバーの min-app-version と比較される versionCode。 */
     private val appVersionCode: Int,
+    val logger: AuthLogger = AuthLogger.None,
 ) {
     private val baseUrl = baseUrl.trimEnd('/')
 
@@ -70,7 +71,16 @@ class ApiHttp(
             if (body != null) put("Content-Type", "application/json")
             if (bearer != null) put("Authorization", "Bearer $bearer")
         }
-        return transport.execute(HttpRequest(method, baseUrl + path, headers, body))
+        logger.d("-> $method $path")
+        val startedAt = System.nanoTime()
+        try {
+            val response = transport.execute(HttpRequest(method, baseUrl + path, headers, body))
+            logger.d("<- ${response.status} $method $path (${(System.nanoTime() - startedAt) / 1_000_000} ms)")
+            return response
+        } catch (e: java.io.IOException) {
+            logger.w("xx $method $path failed after ${(System.nanoTime() - startedAt) / 1_000_000} ms: ${e.javaClass.simpleName}: ${e.message}", e)
+            throw e
+        }
     }
 
     inline fun <reified Req, reified Res> postJson(path: String, req: Req): Res =
@@ -84,6 +94,7 @@ class ApiHttp(
     fun throwIfError(response: HttpResponse) {
         if (response.status in 200..299) return
         val err = runCatching { ApiJson.decodeFromString(ErrorResponse.serializer(), response.body) }.getOrNull()
+        logger.w("server error: status=${response.status} code=${err?.error ?: ErrorCodes.UNKNOWN}")
         throw DeviceAuthException(
             err?.error ?: ErrorCodes.UNKNOWN,
             response.status,

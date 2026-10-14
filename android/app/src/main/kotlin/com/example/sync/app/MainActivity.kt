@@ -120,6 +120,7 @@ class MainActivity : Activity() {
         syncButton.visibility = if (registered && !revoked) View.VISIBLE else View.GONE
 
         val lock = container.offlineGuard.status()
+        container.logger.d("render: registered=$registered revoked=$revoked lock=$lock")
         val lockMessage = when {
             !registered -> null
             revoked -> getString(R.string.locked_revoked)

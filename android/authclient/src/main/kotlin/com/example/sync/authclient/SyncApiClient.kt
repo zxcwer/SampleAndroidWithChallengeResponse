@@ -44,6 +44,7 @@ class SyncApiClient(
         try {
             var response = send(method, path, body)
             if (response.status == 401) {
+                api.logger.w("sync: 401 on $method $path - discarding token and re-authenticating once")
                 holder.clear()
                 response = send(method, path, body)
             }
@@ -51,6 +52,7 @@ class SyncApiClient(
             return response
         } catch (e: DeviceAuthException) {
             if (e.isDeviceRevoked) {
+                api.logger.e("sync: device rejected by server (${e.code}); notifying listener")
                 holder.clear()
                 listener.onDeviceRevoked(e.code)
             }
@@ -59,7 +61,10 @@ class SyncApiClient(
     }
 
     private fun send(method: String, path: String, body: String?): HttpResponse {
-        val token = holder.current() ?: auth.authenticate().also(holder::set)
+        val token = holder.current() ?: run {
+            api.logger.d("sync: no usable access token in memory - authenticating")
+            auth.authenticate().also(holder::set)
+        }
         return api.send(method, path, body, token.value)
     }
 }

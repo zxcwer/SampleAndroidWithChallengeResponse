@@ -3,6 +3,7 @@ package com.example.sync.app
 import android.content.Context
 import com.example.sync.authclient.AccessTokenHolder
 import com.example.sync.authclient.ApiHttp
+import com.example.sync.authclient.AuthLogger
 import com.example.sync.authclient.DeviceAuthClient
 import com.example.sync.authclient.OfflineGuard
 import com.example.sync.authclient.SyncApiClient
@@ -13,7 +14,8 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     val clock = AndroidDeviceClock(appContext)
-    val keyStore = AndroidKeystoreDeviceKeyStore()
+    val logger: AuthLogger = AndroidAuthLogger
+    val keyStore = AndroidKeystoreDeviceKeyStore(logger = logger)
     val deviceIds = SharedPrefsDeviceIdStore(appContext)
     val revokedFlag = RevokedFlagStore(appContext)
     val offlineGuard = OfflineGuard(SharedPrefsOfflineStateStore(appContext), clock)
@@ -21,7 +23,7 @@ class AppContainer(context: Context) {
     val dbKeys = LocalDbKeyProvider(appContext)
     val localDatabase = SecureLocalDatabase(appContext, dbKeys)
 
-    private val api = ApiHttp(BuildConfig.SERVER_BASE_URL, UrlConnectionTransport(), appVersionCode())
+    private val api = ApiHttp(BuildConfig.SERVER_BASE_URL, UrlConnectionTransport(), appVersionCode(), logger)
     val auth = DeviceAuthClient(api, keyStore, deviceIds, clock)
     private val tokenHolder = AccessTokenHolder(clock)
 
@@ -33,11 +35,13 @@ class AppContainer(context: Context) {
      *  - WIPE_ON_REVOKED=true の場合: ローカル DB と鍵も消去する
      */
     private fun onDeviceRevoked() {
+        logger.e("device revoked: locking the app (wipeLocalData=${BuildConfig.WIPE_ON_REVOKED})")
         revokedFlag.revoked = true
         if (BuildConfig.WIPE_ON_REVOKED) wipeLocalData()
     }
 
     fun wipeLocalData() {
+        logger.w("wiping local database, its key and the offline state")
         localDatabase.wipe()
         offlineGuard.clear()
     }

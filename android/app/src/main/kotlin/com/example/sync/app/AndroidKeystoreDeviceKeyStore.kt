@@ -3,6 +3,7 @@ package com.example.sync.app
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.example.sync.authclient.AuthLogger
 import com.example.sync.authclient.DeviceKeyStore
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -15,18 +16,22 @@ import java.security.spec.ECGenParameterSpec
  * 端末の本人性を証明する ECDSA(P-256 / SHA-256) 鍵ペア。秘密鍵は Android Keystore から取り出せない。
  * StrongBox 搭載端末ではそちらを優先し、非搭載なら通常の TEE にフォールバックする。
  */
-class AndroidKeystoreDeviceKeyStore(private val alias: String = KEY_ALIAS) : DeviceKeyStore {
+class AndroidKeystoreDeviceKeyStore(
+    private val alias: String = KEY_ALIAS,
+    private val logger: AuthLogger = AuthLogger.None,
+) : DeviceKeyStore {
 
     override fun generate(): String {
         delete()
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE)
         val publicKey = try {
             kpg.initialize(buildSpec(strongBox = true))
-            kpg.generateKeyPair().public
+            kpg.generateKeyPair().public.also { logger.i("device key generated in StrongBox") }
         } catch (e: ProviderException) {
             // StrongBoxUnavailableException は ProviderException のサブクラス。機種により素の ProviderException も来る。
+            logger.w("StrongBox unavailable (${e.javaClass.simpleName}); falling back to the regular Keystore (TEE/software)")
             kpg.initialize(buildSpec(strongBox = false))
-            kpg.generateKeyPair().public
+            kpg.generateKeyPair().public.also { logger.i("device key generated in the regular Keystore") }
         }
         // X.509 SubjectPublicKeyInfo を Base64(改行なし) で送る
         return Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)

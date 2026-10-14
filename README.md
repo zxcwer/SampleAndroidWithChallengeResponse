@@ -213,7 +213,8 @@ scripts/new-registration-code.sh
 - エミュレータに StrongBox は無いため、鍵は自動で通常の Keystore にフォールバックします
 - 動作確認の例: `scripts/set-device-status.sh list` で端末を確認 → `lost` に変更 → アプリで「今すぐ同期」→ ロック表示。
   オフラインロックは `.env` に `SYNC_MAX_OFFLINE_DAYS=0` を入れて `docker compose up -d` し直し、同期後に画面を開き直すとロックされる
-- ログ: `adb logcat | grep -i com.example.sync`、サーバー: `docker compose logs -f sync-server`
+- ログ: アプリは logcat のタグ **`SyncAuth`** に出力します → `adb logcat -s SyncAuth`(Windows PowerShell も同じ。adb は `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe`)。
+  サーバー: `docker compose logs -f sync-server`。内容は下の「ログ (logcat)」を参照
 - 登録済みの状態をやり直すには、エミュレータで「設定 > アプリ > 端末認証サンプル > ストレージ > データを消去」(Keystore の鍵も消えます)
 
 ### 実機 (本物の Android 端末) で試す
@@ -253,6 +254,23 @@ ANDROID_HOME=/path/to/sdk ./gradlew :app:assembleDebug -PsyncServerUrl=https://s
 
 サーバーのテストは `android/authclient` のソースをそのまま取り込み、本物のクライアントで登録→認証→同期まで通します
 (Keystore の代わりにソフトウェア鍵を使用。署名は Android と同じ DER 形式)。
+
+## ログ (logcat)
+
+アプリ (`android/app`) は logcat のタグ `SyncAuth` に出力します。Android Studio の Logcat で `tag:SyncAuth`、またはコマンドで `adb logcat -s SyncAuth`。
+
+```
+D SyncAuth: -> POST /auth/v1/device/challenge
+D SyncAuth: <- 200 POST /auth/v1/device/challenge (42 ms)
+I SyncAuth: authenticate: ok (access token valid for 1800s, kept in memory only)
+W SyncAuth: server error: status=403 code=device_revoked
+E SyncAuth: sync: device rejected by server (device_revoked); notifying listener
+```
+
+- 出すもの: HTTP メソッド/パス/ステータス/所要時間、エラーコード、端末ID、登録・認証・同期の状態遷移、Keystore の保存先 (StrongBox / 通常 Keystore)、ロック状態
+- **出さないもの**: アクセストークン、nonce、署名、登録コード、DB パスフレーズ、リクエスト/レスポンスの本文 (テスト `LoggingTest` で確認)
+- 詳細 (D/I) はデバッグビルドのみ。警告/エラー (W/E) はリリースでも出ます
+- `authclient` は Android に依存しないため `AuthLogger` インターフェース経由で出力します (`ApiHttp` の引数)。アプリ側の実装は `AndroidAuthLogger`
 
 ## 運用メモ
 
