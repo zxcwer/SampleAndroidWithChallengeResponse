@@ -21,10 +21,12 @@ OUT="$ROOT/certs"
 mkdir -p "$OUT"
 umask 077
 
-# SAN の組み立て (IP アドレスは IP:、それ以外は DNS:)。最初のホストも同様に判定する
+# SAN の組み立て (IP アドレスは IP:、それ以外は DNS:)。最初のホストも同様に判定する。
+# 管理スクリプト(curl https://localhost:8443)用に localhost / 127.0.0.1 は常に含める。重複は除く。
 SAN=""
-for h in "$HOST" "$@"; do
+for h in "$HOST" "$@" localhost 127.0.0.1; do
   if [[ "$h" =~ ^[0-9.]+$ || "$h" == *:* ]]; then entry="IP:$h"; else entry="DNS:$h"; fi
+  case ",$SAN," in *",$entry,"*) continue ;; esac
   SAN="${SAN:+$SAN,}$entry"
 done
 
